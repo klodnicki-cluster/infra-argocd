@@ -4,26 +4,27 @@ This repository contains the configuration for self-managed ArgoCD deployment. A
 
 ## Purpose
 
-- **Self-Deployment**: ArgoCD uses a self-referential Application to deploy and update itself
-- **GitOps-Driven Updates**: All updates to ArgoCD configuration are version-controlled in Git
+- **Auto-Discovered Deployments**: Repositories tagged with the `argocd` GitHub topic are automatically discovered and deployed
+- **ApplicationSet-Driven**: Uses ArgoCD ApplicationSet for scalable, declarative repository management
+- **GitOps-Driven Updates**: All updates to ArgoCD and deployment configurations are version-controlled in Git
 - **Automated Updates**: Renovate automatically creates PRs for new ArgoCD/Helm chart versions
-- **Single Source of Truth**: This repository becomes the definitive source for ArgoCD configuration
+- **Scalable Pattern**: Add new repos, tag them with `argocd` topic → automatic deployment
 
 ## Repository Structure
 
 ```
 .
-├── README.md                              # This file
-├── BOOTSTRAP.md                           # Initial setup guide
-├── renovate.json                          # Renovate configuration
+├── README.md                                          # This file
+├── BOOTSTRAP.md                                       # Initial setup guide
+├── renovate.json                                      # Renovate configuration
 └── argocd/
-    ├── Chart.yaml                         # Wrapper chart referencing argo-cd
-    ├── Chart.lock                         # Helm dependency lock file
-    ├── values.yaml                        # Helm values for argo-cd
+    ├── Chart.yaml                                     # Wrapper chart referencing argo-cd
+    ├── Chart.lock                                     # Helm dependency lock file
+    ├── values.yaml                                    # Helm values for argo-cd
     ├── templates/
-    │   └── argocd-application.yaml       # Self-referential Application manifest
+    │   └── argocd-deployments-applicationset.yaml    # ApplicationSet for auto-discovery
     └── values/
-        └── argocd-values.yaml            # Detailed values configuration (reference)
+        └── argocd-values.yaml                         # Detailed values reference
 ```
 
 ### Key Files
@@ -38,11 +39,11 @@ This repository contains the configuration for self-managed ArgoCD deployment. A
 - Contains configuration for ArgoCD components (server, controller, repo-server, etc.)
 - Resource limits, persistence, RBAC, and security settings
 
-#### `argocd/applications/argocd-application.yaml`
-- Self-referential ArgoCD Application manifest
-- Deploys ArgoCD from this repository
-- Configured for auto-sync with self-healing enabled
-- Auto-prunes resources no longer in the repository
+#### `argocd/templates/argocd-deployments-applicationset.yaml`
+- ApplicationSet that discovers repositories with the `argocd` GitHub topic
+- Generates Applications automatically for all discovered repositories
+- Each Application deploys content from the repo's `argocd/` directory
+- Namespace: repository name (sanitized for Kubernetes)
 
 #### `renovate.json`
 - Renovate bot configuration
@@ -52,27 +53,130 @@ This repository contains the configuration for self-managed ArgoCD deployment. A
 
 ## How It Works
 
-### Initial Bootstrap
+### Application Auto-Discovery
 
-1. Install ArgoCD manually on the cluster using the Helm chart (see [BOOTSTRAP.md](BOOTSTRAP.md))
-2. Apply the Application manifest: `argocd-application.yaml`
-3. ArgoCD is now self-managing
-
-### Self-Management Cycle
+The repository contains an ApplicationSet that automatically discovers all repositories in the GitHub organization tagged with the `argocd` topic:
 
 ```
-1. Changes pushed to this repo
-    ↓
-2. ArgoCD detects changes via Application webhook/polling
-    ↓
-3. ArgoCD reconciles cluster state with repository
-    ↓
-4. New ArgoCD version deployed automatically
+GitHub Organization (klodnicki-cluster)
+├── repo-1 (topic: argocd) → Auto-deployed
+├── repo-2 (topic: argocd) → Auto-deployed
+├── repo-3 (NO topic)      → Ignored
+└── repo-4 (topic: argocd) → Auto-deployed
 ```
 
-### Update Workflow
+### Discovery & Deployment Flow
 
-#### Automatic Updates (via Renovate)
+```
+1. ApplicationSet polls GitHub for repos with 'argocd' topic
+    ↓
+2. For each discovered repo:
+    - Checks for argocd/Chart.yaml
+    - Reads argocd/values.yaml
+    ↓
+3. Generates Application for each repo
+    - Name: {repo-name}
+    - Namespace: {repo-name}
+    - Release: {repo-name}
+    ↓
+4. ArgoCD deploys the Application
+    - Auto-sync enabled
+    - Self-heal enabled
+    ↓
+5. Application deploys the Helm chart from argocd/ directory
+```
+
+## Setting Up a New Deployment Repository
+
+To add a new application/service that should be auto-deployed by ArgoCD:
+
+### Step 1: Create the `argocd/` Directory
+
+In your repository:
+
+```bash
+mkdir -p argocd/templates
+```
+
+### Step 2: Create `argocd/Chart.yaml`
+
+Reference the Helm chart for your application:
+
+```yaml
+apiVersion: v2
+name: my-app
+dependencies:
+  - name: my-app
+    version: 1.0.0
+    repository: https://charts.example.com
+```
+
+### Step 3: Create `argocd/values.yaml`
+
+Configure your Helm chart:
+
+```yaml
+my-app:
+  replicas: 2
+  image:
+    tag: v1.0.0
+  # ... other values
+```
+
+### Step 4: Add the `argocd` Topic
+
+In GitHub UI:
+1. Go to your repository settings
+2. Find "Topics" section
+3. Add topic: `argocd`
+4. Save
+
+### Step 5: Push to GitHub
+
+```bash
+git add argocd/
+git commit -m "feat: add argocd deployment configuration"
+git push
+```
+
+### Step 6: Wait for Discovery
+
+The ApplicationSet will discover your repository within a few minutes. Verify:
+
+```bash
+kubectl get applications -n argocd
+# Should show your-repo-name in the list
+```
+
+Your application is now deployed to the `{repo-name}` namespace! 🎉
+
+### Optional: Custom Resources
+
+For advanced needs, add custom Kubernetes resources or Applications in `argocd/templates/`:
+
+```yaml
+# argocd/templates/custom-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app-custom
+spec:
+  # Custom application configuration
+  ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-app-secrets
+data:
+  key: secret-value
+```
+
+These resources will be deployed alongside the default application.
+
+## Updating ArgoCD Itself
+
+### Automatic Updates (via Renovate)
 
 ```
 1. Renovate checks for new argo-cd chart versions daily
@@ -85,16 +189,21 @@ This repository contains the configuration for self-managed ArgoCD deployment. A
     ↓
 5. PR merged to main branch
     ↓
-6. ArgoCD detects change in this repo
+6. ArgoCD detects change and auto-syncs
     ↓
-7. ArgoCD applies the update automatically
+7. ArgoCD updates itself automatically
 ```
 
-#### Manual Updates
+### Manual Updates
 
 1. Edit `argocd/Chart.yaml` and update the `argo-cd` dependency version
-2. Run `helm dependency update` to update `Chart.lock`
-3. Commit and push changes
+2. Run `helm dependency update argocd/` to update `Chart.lock`
+3. Commit and push:
+   ```bash
+   git add argocd/Chart.yaml argocd/Chart.lock
+   git commit -m "chore: update argo-cd helm chart to <new-version>"
+   git push
+   ```
 4. ArgoCD automatically applies the update
 
 ## Configuration
@@ -118,12 +227,8 @@ To update the ArgoCD Helm chart version:
 1. Edit `argocd/Chart.yaml`
 2. Update the `version` field in the dependencies section
 3. Run `helm dependency update argocd/` to update `Chart.lock`
-4. Commit and push:
-   ```bash
-   git add argocd/Chart.yaml argocd/Chart.lock
-   git commit -m "chore: update argo-cd helm chart to <new-version>"
-   git push
-   ```
+4. Commit and push
+5. ArgoCD automatically applies the update
 
 Or let Renovate do it automatically!
 

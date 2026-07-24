@@ -1,0 +1,73 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: argocd-deployments
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - scmProvider:
+        github:
+          organization: klodnicki-cluster
+          tokenRef:
+            secretRef:
+              name: github-token
+              key: token
+          api: https://api.github.com
+          # Discover only repositories with 'argocd' topic
+          filters:
+            - repositoryMatch:
+                - metadata.topics: argocd
+
+  # Prevents ApplicationSet from creating Applications for repos without argocd/ directory
+  # Each Application will be named after the repository
+  template:
+    metadata:
+      name: '{{.repository.name}}'
+      namespace: argocd
+      labels:
+        managed-by: argocd-applicationset
+        source-repo: '{{.repository.name}}'
+      annotations:
+        description: 'Discovered from {{.repository.url}}'
+    
+    spec:
+      project: default
+      
+      # Source: the discovered repository
+      source:
+        repoURL: '{{.repository.url}}'
+        targetRevision: HEAD
+        # Each repo must have an argocd/ directory with Chart.yaml and values.yaml
+        path: argocd/
+        
+        # Helm configuration: deploy whatever chart is in argocd/
+        helm:
+          releaseName: '{{.repository.name}}'
+          # Use the values.yaml in the argocd/ directory
+          valueFiles:
+            - values.yaml
+      
+      # Destination: deploy to cluster-local namespace matching repo name
+      destination:
+        server: https://kubernetes.default.svc
+        # Namespace defaults to repository name (sanitized for Kubernetes)
+        # Repos can override via custom Application in argocd/templates/
+        namespace: '{{.repository.name}}'
+      
+      # Sync policy: enable auto-sync with self-healing
+      syncPolicy:
+        automated:
+          prune: true    # Delete resources no longer in the repo
+          selfHeal: true # Reconcile if cluster drifts from git
+        
+        syncOptions:
+          - CreateNamespace=true
+        
+        # Retry on transient failures
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

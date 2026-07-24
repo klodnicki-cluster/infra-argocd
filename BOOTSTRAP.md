@@ -1,6 +1,6 @@
 # ArgoCD Bootstrap Guide
 
-This guide explains how to initially set up ArgoCD on your Kubernetes cluster using this repository. After the initial bootstrap, ArgoCD will manage itself through the Application manifest.
+This guide explains how to initially set up ArgoCD on your Kubernetes cluster using this repository. After the initial bootstrap, ArgoCD will automatically discover and manage all repositories tagged with the `argocd` GitHub topic.
 
 ## Prerequisites
 
@@ -8,6 +8,8 @@ This guide explains how to initially set up ArgoCD on your Kubernetes cluster us
 - `kubectl` configured to access your cluster
 - `helm` CLI (3.10+)
 - Git access to this repository
+- GitHub organization with repositories to deploy
+- GitHub token with repository read access
 
 ## Initial Bootstrap Steps
 
@@ -50,32 +52,47 @@ helm install argocd argo-cd/argo-cd \
   --version 7.3.3
 ```
 
-### Step 4: Wait for ArgoCD to Be Ready
+### Step 5: Create GitHub Token Secret
+
+The ApplicationSet needs a GitHub token to discover repositories with the `argocd` topic.
+
+#### Create a GitHub Personal Access Token (PAT)
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens
+2. Generate a new token (classic)
+3. Grant `public_repo` scope (or `repo` for private repos)
+4. Copy the token
+
+#### Create the secret in Kubernetes
 
 ```bash
-kubectl wait --for=condition=Progressing=True application/argocd \
-  --namespace argocd \
-  --timeout=300s
+kubectl create secret generic github-token \
+  --from-literal=token='<your-github-token>' \
+  -n argocd
 ```
 
-Or watch the deployment:
+### Step 6: Verify the ApplicationSet
+
+The ApplicationSet is part of the Helm chart and was automatically deployed during installation.
 
 ```bash
-kubectl rollout status deployment/argocd-application-controller -n argocd
-kubectl rollout status deployment/argocd-server -n argocd
-kubectl rollout status deployment/argocd-repo-server -n argocd
+kubectl get applicationsets -n argocd
+kubectl describe applicationset argocd-deployments -n argocd
 ```
 
-### Step 5: Verify the Application
+### Step 7: Wait for ApplicationSet to Discover Repositories
 
-The Application manifest is part of the Helm chart (in `templates/`) and was automatically applied during installation.
+The ApplicationSet will:
+1. Poll GitHub for repositories in your organization with the `argocd` topic
+2. Generate Applications for each discovered repository
+3. ArgoCD will deploy them
+
+This typically takes a few minutes. Watch the discovery:
 
 ```bash
-kubectl get applications -n argocd
-kubectl describe application argocd -n argocd
+# Watch for generated Applications
+kubectl get applications -n argocd -w
 ```
-
-You should see the application sync successfully.
 
 ## Accessing ArgoCD
 
@@ -104,51 +121,83 @@ For production, configure:
 
 See `values.yaml` for configuration options.
 
-## Post-Bootstrap: Automatic Updates
+## Post-Bootstrap: Automatic Discovery
 
-Once bootstrapped, the ArgoCD Application will:
+Once bootstrapped, the ApplicationSet will:
 
-1. **Monitor this repository** for changes
-2. **Auto-sync** when changes are detected (Helm chart updates)
-3. **Renovate** will automatically create PRs when:
-   - A new argo-cd Helm chart version is available (after 28-day stability window)
-   - Non-major version bumps will auto-merge
-   - Major version bumps require manual review
+1. **Discover repositories** with the `argocd` GitHub topic
+2. **Generate Applications** automatically for each discovered repo
+3. **Deploy content** from each repo's `argocd/` directory
+4. **Keep everything in sync** with auto-sync and self-heal enabled
 
-## Updating ArgoCD
+### Adding a New Deployment Repository
 
-To update ArgoCD after bootstrap:
+See README.md for detailed instructions on setting up new deployment repositories.
 
-1. **For automatic updates**: Renovate will create a PR with the updated chart version
-2. **For manual updates**: Edit `argocd/Chart.yaml` and update the version in the dependencies section
-3. Push changes to this repository
-4. ArgoCD will automatically sync and apply the update
+Quick summary:
+1. Create `argocd/Chart.yaml` and `argocd/values.yaml` in your repo
+2. Add the `argocd` topic on GitHub
+3. Push to GitHub
+4. ApplicationSet automatically discovers and deploys within minutes
 
-Example of updating manually:
+## Updating ArgoCD Itself
 
-```bash
-# Edit Chart.yaml and update the argo-cd dependency version
-# Then push to git
-git add argocd/Chart.yaml
-git commit -m "chore: update argo-cd helm chart to 7.4.0"
-git push
+### Automatic Updates (via Renovate)
 
-# ArgoCD will automatically detect and apply the change
-kubectl get applications -n argocd  # Watch the sync
-```
+Renovate automatically:
+1. Monitors the official argo-cd Helm chart
+2. Creates PRs with version updates (after 28-day stability window)
+3. Auto-merges patch and minor versions
+4. Requests review for major versions
+
+The ApplicationSet detects changes and auto-syncs the update.
+
+### Manual Updates
+
+1. Edit `argocd/Chart.yaml` and update the `argo-cd` dependency version
+2. Run `helm dependency update argocd/`
+3. Commit and push:
+   ```bash
+   git add argocd/Chart.yaml argocd/Chart.lock
+   git commit -m "chore: update argo-cd helm chart to X.Y.Z"
+   git push
+   ```
+4. ArgoCD automatically syncs and applies the update
 
 ## Troubleshooting
 
-### Application is out of sync
+### ApplicationSet not discovering repositories
 
-Check what's different:
+Check if the ApplicationSet is running:
 ```bash
-kubectl describe application argocd -n argocd
+kubectl get applicationsets -n argocd
+kubectl describe applicationset argocd-deployments -n argocd
+```
+
+Common issues:
+- **GitHub token missing or invalid**: Verify the `github-token` secret exists
+  ```bash
+  kubectl get secret github-token -n argocd
+  ```
+- **Organization name mismatch**: Check that organization name in ApplicationSet matches your GitHub org
+- **Repository topic not set**: Ensure repositories have the `argocd` topic on GitHub
+
+Check ApplicationSet logs:
+```bash
+kubectl logs -n argocd deployment/argocd-applicationset-controller -f
+```
+
+### Generated Application is out of sync
+
+Check the Application status:
+```bash
+kubectl get applications -n argocd
+kubectl describe application <app-name> -n argocd
 ```
 
 Manually sync:
 ```bash
-kubectl patch application argocd -n argocd -p '{"status":{"operationState":{"finishedAt":null}}}' --type merge
+kubectl patch application <app-name> -n argocd -p '{"status":{"operationState":{"finishedAt":null}}}' --type merge
 ```
 
 ### ArgoCD pods are stuck
@@ -157,7 +206,16 @@ Check the pod logs:
 ```bash
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-application-controller --tail=50
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-server --tail=50
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-repo-server --tail=50
 ```
+
+### Repository not being discovered
+
+Verify:
+1. GitHub topic is set to `argocd` (not `argo-cd`)
+2. Repository has `argocd/Chart.yaml` file
+3. GitHub token has appropriate permissions
+4. Organization name matches what's in ApplicationSet
 
 ### Chart dependency resolution fails
 
