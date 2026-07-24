@@ -6,3 +6,7 @@ argo-cd:
       - key: node-role.kubernetes.io/control-plane
         operator: Equal
         effect: NoSchedule
+  server:
+    ingress:
+      enabled: true
+      hostname: argocd.cluster.zack.klodnicki.com
