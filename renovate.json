@@ -1,77 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
-  "helm": {
-    "enabled": true
-  },
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "🤖 Renovate Dashboard - ArgoCD",
-  
+  "stabilityDays": 28,
+  "automerge": true,
   "packageRules": [
     {
-      "description": "ArgoCD Helm chart updates with safety window",
-      "matchDatasources": ["helm"],
-      "matchPackagePatterns": ["argo-cd"],
-      "groupName": "ArgoCD Helm Chart",
-      "stabilityDays": 28,
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash",
-      "minimumReleaseAge": "28d",
-      "rangeStrategy": "bump"
-    },
-    {
-      "description": "Minor version updates to argo-cd chart",
-      "matchDatasources": ["helm"],
-      "matchPackagePatterns": ["argo-cd"],
-      "matchUpdateTypes": ["minor"],
-      "automerge": true,
-      "autoMergeStrategy": "squash"
-    },
-    {
-      "description": "Patch version updates to argo-cd chart",
-      "matchDatasources": ["helm"],
-      "matchPackagePatterns": ["argo-cd"],
-      "matchUpdateTypes": ["patch"],
-      "automerge": true,
-      "autoMergeStrategy": "squash"
-    },
-    {
-      "description": "Do not automerge major version updates - require review",
-      "matchDatasources": ["helm"],
-      "matchPackagePatterns": ["argo-cd"],
+      "description": "Major updates do not automerge",
       "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "labels": ["helm-major-update", "requires-review"]
+      "automerge": false
     }
   ],
-
   "postUpdateOptions": [
-    "gomodTidy",
     "helmUpdateSubChartDependencies"
-  ],
-
-  "prConcurrentLimit": 2,
-  "prCreation": "not-pending",
-  "semanticCommits": "enabled",
-  "commitMessagePrefix": "chore(renovate): ",
-  
-  "pullRequests": {
-    "labels": ["renovate", "dependencies"],
-    "assignees": []
-  },
-
-  "ignorePaths": [
-    "**/node_modules",
-    "**/venv",
-    "**/.venv"
-  ],
-
-  "helm": {
-    "additionalSchemas": {
-      "helm": "https://argoproj.github.io/argo-helm"
-    }
-  }
+  ]
 }
