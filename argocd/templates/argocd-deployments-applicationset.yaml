@@ -14,27 +14,27 @@ spec:
 
   template:
     metadata:
-      name: '{{.repository.name}}'
+      name: {{ "{{.repository.name}}" | quote }}
       namespace: argocd
       labels:
         managed-by: argocd-applicationset
-        source-repo: '{{.repository.name}}'
+        source-repo: {{ "{{.repository.name}}" | quote }}
       annotations:
-        description: 'Discovered from {{.repository.url}}'
+        description: {{ "Discovered from {{.repository.url}}" | quote }}
     
     spec:
       project: default
       
       # Source: the discovered repository
       source:
-        repoURL: '{{.repository.url}}'
+        repoUrl: {{ "{{.repository.url}}" | quote }}
         targetRevision: HEAD
         # Each repo must have an argocd/ directory with Chart.yaml and values.yaml
         path: argocd/
         
         # Helm configuration: deploy whatever chart is in argocd/
         helm:
-          releaseName: '{{.repository.name}}'
+          releaseName: {{ "{{.repository.name}}" | quote }}
           # Use the values.yaml in the argocd/ directory
           valueFiles:
             - values.yaml
@@ -44,7 +44,7 @@ spec:
         server: https://kubernetes.default.svc
         # Namespace defaults to repository name (sanitized for Kubernetes)
         # Repos can override via custom Application in argocd/templates/
-        namespace: '{{.repository.name}}'
+        namespace: {{ "{{.repository.name}}" | quote }}
       
       # Sync policy: enable auto-sync with self-healing
       syncPolicy:
