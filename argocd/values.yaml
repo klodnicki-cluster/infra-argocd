@@ -1,1 +1,11 @@
-argo-cd: {}
+argo-cd:
+  repositories:
+    - type: git
+      url: https://github.com/klodnicki-cluster
+      github:
+        appID: 4380332
+        installationID: 148633733
+        privateKey:
+          secretRef:
+            name: klodnicki-cluster-argocd-app-private-key
+            key: privateKey
