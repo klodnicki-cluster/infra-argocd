@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: argocd-deployments
-  namespace: argocd
+  namespace: infra-argocd
 spec:
   goTemplate: true
   generators:
@@ -15,7 +15,7 @@ spec:
   template:
     metadata:
       name: {{ "{{.repository.name}}" | quote }}
-      namespace: argocd
+      namespace: infra-argocd
       labels:
         managed-by: argocd-applicationset
         source-repo: {{ "{{.repository.name}}" | quote }}
