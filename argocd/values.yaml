@@ -1,0 +1,101 @@
+# This values file is for the wrapper chart defined in Chart.yaml
+# The actual ArgoCD configuration is in values/argocd-values.yaml
+# 
+# This file passes those values to the argo-cd dependency using the alias
+
+argo-cd:
+  # Include values from our custom values file
+  global:
+    domain: argocd.example.com
+
+  configs:
+    params:
+      server.insecure: false
+      application.instanceLabelKey: argocd.argoproj.io/instance
+
+    rbac:
+      policy.default: role:readonly
+      policy.csv: |
+        p, role:admin, *, *, allow
+        g, admin, role:admin
+
+  server:
+    service:
+      type: ClusterIP
+      port: 443
+      protocol: HTTPS
+    ui:
+      enabled: true
+    insecure: false
+    extraArgs:
+      - --insecure=false
+
+  repoServer:
+    serviceAccount:
+      create: true
+      automountServiceAccountToken: true
+
+  controller:
+    args:
+      selfHealInterval: 5
+
+  applicationController:
+    replicas: 1
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+  notifications:
+    enabled: false
+
+  controller:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  server:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  repoServer:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  dex:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: ""
+
+  redis:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi

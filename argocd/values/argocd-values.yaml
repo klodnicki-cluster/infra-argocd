@@ -1,0 +1,117 @@
+# ArgoCD Helm Chart Values
+# Using the official argoproj-community/argo-cd chart
+# Chart version will be managed by Renovate
+
+global:
+  domain: argocd.example.com
+
+configs:
+  params:
+    server.insecure: false
+    application.instanceLabelKey: argocd.argoproj.io/instance
+
+  # RBAC Configuration
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, *, *, allow
+      g, admin, role:admin
+
+server:
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 443
+    protocol: HTTPS
+
+  # Enable UI
+  ui:
+    enabled: true
+
+  # Enable insecure client disable
+  insecure: false
+
+  extraArgs:
+    - --insecure=false
+
+repoServer:
+  # Enable service account token
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: true
+
+controller:
+  # Self-healing and auto-sync settings
+  args:
+    selfHealInterval: 5
+
+# Application controller settings
+applicationController:
+  replicas: 1
+
+# Repository Server
+repoServerDelegate:
+  enabled: false
+
+# Metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+# Notifications (optional - can be enabled later)
+notifications:
+  enabled: false
+
+# Resource limits (adjust as needed)
+controller:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+server:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+repoServer:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+dex:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Persistence (adjust storage class as needed)
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClassName: ""  # Use cluster default
+
+# Redis configuration
+redis:
+  resources:
+    limits:
+      cpu: 250m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

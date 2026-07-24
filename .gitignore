@@ -1,0 +1,19 @@
+# Helm
+Chart.lock
+charts/
+*.tgz
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Temporary
+*.tmp
+*.temp
