@@ -7,6 +7,6 @@ appVersion: "1.0.0"
 
 dependencies:
   - name: argo-cd
-    version: 7.3.3  # Renovate will update this version
+    version: 7.9.1  # Renovate will update this version
     repository: https://argoproj.github.io/argo-helm
     alias: argo-cd
