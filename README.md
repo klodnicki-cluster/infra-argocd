@@ -20,10 +20,10 @@ This repository contains the configuration for self-managed ArgoCD deployment. A
     ├── Chart.yaml                         # Wrapper chart referencing argo-cd
     ├── Chart.lock                         # Helm dependency lock file
     ├── values.yaml                        # Helm values for argo-cd
-    ├── applications/
+    ├── templates/
     │   └── argocd-application.yaml       # Self-referential Application manifest
     └── values/
-        └── argocd-values.yaml            # Detailed values configuration (legacy)
+        └── argocd-values.yaml            # Detailed values configuration (reference)
 ```
 
 ### Key Files

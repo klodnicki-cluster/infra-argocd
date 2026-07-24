@@ -66,15 +66,9 @@ kubectl rollout status deployment/argocd-server -n argocd
 kubectl rollout status deployment/argocd-repo-server -n argocd
 ```
 
-### Step 5: Apply the Self-Managing Application Manifest
+### Step 5: Verify the Application
 
-Once ArgoCD is running, apply the Application manifest that will manage ArgoCD itself:
-
-```bash
-kubectl apply -f argocd/applications/argocd-application.yaml
-```
-
-### Step 6: Verify the Application
+The Application manifest is part of the Helm chart (in `templates/`) and was automatically applied during installation.
 
 ```bash
 kubectl get applications -n argocd
