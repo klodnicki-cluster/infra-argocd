@@ -3,7 +3,7 @@
   "extends": [
     "config:recommended"
   ],
-  "stabilityDays": 28,
+  "minimumReleaseAge": "28 days",
   "automerge": true,
   "packageRules": [
     {
