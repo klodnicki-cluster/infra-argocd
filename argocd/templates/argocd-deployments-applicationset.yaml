@@ -20,14 +20,14 @@ spec:
         managed-by: argocd-applicationset
         source-repo: {{ "{{.repository}}" | quote }}
       annotations:
-        description: {{ "Discovered from https://github.com/klodnicki-cluster/{{.url}}" | quote }}
+        description: {{ "Discovered from https://github.com/klodnicki-cluster/{{.repository}}" | quote }}
     
     spec:
       project: default
       
       # Source: the discovered repository
       source:
-        repoURL: {{ "https://github.com/klodnicki-cluster/{{.url}}" | quote }}
+        repoURL: {{ "https://github.com/klodnicki-cluster/{{.repository}}" | quote }}
         targetRevision: HEAD
         # Each repo must have an argocd/ directory with Chart.yaml and values.yaml
         path: argocd/
