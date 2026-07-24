@@ -27,7 +27,7 @@ spec:
       
       # Source: the discovered repository
       source:
-        repoUrl: {{ "{{.repository.url}}" | quote }}
+        repoURL: {{ "{{.repository.url}}" | quote }}
         targetRevision: HEAD
         # Each repo must have an argocd/ directory with Chart.yaml and values.yaml
         path: argocd/
