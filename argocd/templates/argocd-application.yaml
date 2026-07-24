@@ -31,11 +31,6 @@ spec:
     automated:
       prune: true    # Delete resources that are no longer in the repo
       selfHeal: true # Auto-sync when cluster state drifts
-      allow:
-        empty: false # Prevent deletion of all resources
-    
-    syncOptions:
-      - CreateNamespace=true
     
     # Retry configuration for transient failures
     retry:
