@@ -9,18 +9,9 @@ spec:
     - scmProvider:
         github:
           organization: klodnicki-cluster
-          tokenRef:
-            secretRef:
-              name: github-token
-              key: token
-          api: https://api.github.com
-          # Discover only repositories with 'argocd' topic
-          filters:
-            - repositoryMatch:
-                - metadata.topics: argocd
+        filters:
+          - labelMatch: argocd
 
-  # Prevents ApplicationSet from creating Applications for repos without argocd/ directory
-  # Each Application will be named after the repository
   template:
     metadata:
       name: '{{.repository.name}}'
