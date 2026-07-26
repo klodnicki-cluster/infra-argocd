@@ -10,3 +10,6 @@ argo-cd:
     ingress:
       enabled: true
       hostname: argocd.cluster.zack.klodnicki.com
+  configs:
+    secret:
+      githubSecret: '$klodnicki-cluster-webhook-secret:secret'
