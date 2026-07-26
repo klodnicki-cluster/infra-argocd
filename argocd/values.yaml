@@ -10,6 +10,3 @@ argo-cd:
     ingress:
       enabled: true
       hostname: argocd.cluster.zack.klodnicki.com
-      annotations:
-        traefik.ingress.kubernetes.io/service.scheme: "https"
-        traefik.ingress.kubernetes.io/servers-insecure: "true"
